@@ -3,7 +3,7 @@ const url = require('url')
 class Obj {
 
     // Agafa les dades que arriben d'una crida POST i retorna un objecte JSON
-    static getPostData (request) {
+    static getPostObject (request) {
         return new Promise(async (resolve, reject) => {
             let body = '',
                 error = null
@@ -35,11 +35,13 @@ class Obj {
                         let keys = Object.keys(objPost)
                         for (let cnt = 0; cnt < keys.length; cnt = cnt + 1) {
                             let value = objPost[keys[cnt]]
-                            let valueInt = parseInt(value)
-                            let valueFlt = parseFloat(value)
-                            if (valueInt && valueFlt) {
-                                if (valueInt == valueFlt) objPost[keys[cnt]] = valueInt
-                                else objPost[keys[cnt]] = valueFlt
+                            if (!isNaN(value)) { // Check if is a number (example: "2ABC" is not a 2)
+                                let valueInt = parseInt(value)
+                                let valueFlt = parseFloat(value)
+                                if (valueInt && valueFlt) {
+                                    if (valueInt == valueFlt) objPost[keys[cnt]] = valueInt
+                                    else objPost[keys[cnt]] = valueFlt
+                                }
                             }
                         }
                         return resolve(objPost)

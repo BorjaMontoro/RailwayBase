@@ -1,66 +1,198 @@
 const express = require('express')
 const fs = require('fs/promises')
-const https = require('https')
-var mysql = require('mysql2');
 const url = require('url')
-const { v4: uuidv4 } = require('uuid')
 const post = require('./post.js')
+const { v4: uuidv4 } = require('uuid')
+const mysql = require('mysql2');
 
-// Iniciar servidors HTTP
+
+// Wait 'ms' milliseconds
+function wait (ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// Start HTTP server
 const app = express()
 
-// Configurar el port del servidor HTTP
+// Set port number
 const port = process.env.PORT || 3000
 
-// Publicar els arxius HTTP de la carpeta 'public'
+// Publish static files from 'public' folder
 app.use(express.static('public'))
 
-// Activar el servidor HTTP
+// Activate HTTP server
 const httpServer = app.listen(port, appListen)
 function appListen () {
-  console.log(`Example app listening for HTTP queries on: ${port}`)
+  console.log(`Listening for HTTP queries on: http://localhost:${port}`)
 }
 
-// Definir URLs del servidor HTTP
-app.get('/direccioURL', getIndex)
-async function getIndex (req, res) {
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-  res.end("Aquestes són les dades que el servidor retorna per un missatge 'GET' a la direcció '/direccioURL'")
-}
-
-// Definir URL per les dades tipus POST
+// Set URL rout for POST queries
 app.post('/dades', getDades)
 async function getDades (req, res) {
-  let receivedPOST = await post.getPostData(req)
+  let receivedPOST = await post.getPostObject(req)
   let result = {};
 
+  var textFile = await fs.readFile("./public/consoles/consoles-list.json", { encoding: 'utf8'})
+  var objConsolesList = JSON.parse(textFile)
+  /*CREATE TABLE Usuaris (
+  id INT NOT NULL AUTO_INCREMENT,
+  nom VARCHAR(50) NOT NULL,
+  cognom VARCHAR(50) NOT NULL,
+  correo VARCHAR(100) NOT NULL,
+  telefon INTEGER NOT NULL,
+  direccio VARCHAR(100) NOT NULL,
+  ciutat VARCHAR(50) NOT NULL,
+  PRIMARY KEY (id)
+);
+*/
   if (receivedPOST) {
-    if (receivedPOST.type == "herois") {
-      result = { result: "Has demanat dades tipus 'herois'" }
+    if (receivedPOST.type == "test") {
+        result = { status: "OK"}
     }
-    if (receivedPOST.type == "bounce") {
-      result = { result: `Has demanat que et reboti el missatge: ${receivedPOST.text}` }
+    if (receivedPOST.type == "insertar"){
+      await wait(1000);
+      await queryDatabase("INSERT INTO Usuaris (nom,cognom,correo,telefon,direccio,ciutat) VALUES ('"+receivedPOST.nom+"','"+receivedPOST.cognom+"','"+receivedPOST.correo+"','"+receivedPOST.telefon+"','"+receivedPOST.direccio+"','"+receivedPOST.ciutat+"')");
+      result = {status: "OK"}
     }
-    if (receivedPOST.type == "broadcast") {
-      result = { result: `Has demanat fer un broadcast del missatge: ${receivedPOST.text}` }
-      broadcast({ type: "broadcastResponse", text: receivedPOST.text })
+    if (receivedPOST.type == "comproUsuario"){
+      await wait(1000);
+      var conteo = await queryDatabase('SELECT COUNT(*) FROM Usuaris WHERE correo="'+receivedPOST.correo+'"');
+      if (Object.values(conteo[0])==0){
+        result = {status: "OK"};
+      } else{
+        result = {status: "NO", result: "errorUsuario"};
+      }
     }
-    if (receivedPOST.type == "listTables") {
-      result = { result: await queryDatabase(`SHOW TABLES`) }
+    if (receivedPOST.type == "comproNomCognom"){
+      await wait(1000);
+      var regex = /^[a-zA-ZñÑáéíóúÁÉÍÓÚ]+$/;//Se utiliza para comprobar que solo contiene las letras indicadas
+      if(regex.test(receivedPOST.nom)){
+      	regex = /^[ a-zA-ZñÑáéíóúÁÉÍÓÚ]+$/;//Se utiliza para comprobar que solo contiene las letras indicadas y espacio
+        if(regex.test(receivedPOST.cognom)){
+          result = {status: "OK"};
+        }else{
+          result = {status: "NO", result: "errorApellido"}  
+        }
+      }else{
+      	result = {status: "NO", result: "errorNombre"} 
+      }
     }
-  }
+    if (receivedPOST.type == "comproCorreo"){
+      await wait(1000);
+      var regex = /^\w+([.-_+]?\w+)*@\w+([.-]?\w+)*(\.\w{2,10})+$/;//Se utiliza para comprobar que tiene los caracteres caracteristicos del correo (sacado de internet)
+      if (regex.test(receivedPOST.correo)){
+        result = {status: "OK"};
+      } else {
+        result = {status: "NO", result: "errorCorreo"} 
+      }
+    }
+    if (receivedPOST.type == "comproTelefono"){
+      await wait(1000);
+      var regex = /^(\d{9})$/;//Se utiliza para comprobar que contiene exactamente 9 numeros como los telefonos de españa
+      if (regex.test(receivedPOST.telefon)){
+        result = {status: "OK"};
+      } else {
+        result = {status: "NO", result: "errorTelefono"} 
+      }
+    }
+    if (receivedPOST.type == "comproDireccio"){
+      await wait(1000);
+      if (receivedPOST.direccio.trim() != ""){
+        result = {status: "OK"};
+      } else {
+        result = {status: "NO", result: "errorDireccio"} 
+      }
+    }
+    if (receivedPOST.type == "comproCiutat"){
+      await wait(1000);
+      var regex = /^[ a-zA-ZñÑáéíóúÁÉÍÓÚ]+$/;//Se utiliza para comprobar que solo contiene las letras indicadas y espacio
+      if(regex.test(receivedPOST.ciutat)){
+      	result = {status: "OK"}
+      }else{
+      	result = {status: "NO", result: "errorCiutat"} 
+      }
+    }
+    if (receivedPOST.type == "test2") {
+      await wait(2000);
+      result = { status: "OK"}
+    }
+    if (receivedPOST.type == "usuarios"){
+      await wait(1000);
+      var usuarios = await queryDatabase('SELECT id,nom FROM Usuaris');
+      result = { status: "OK", result: usuarios}
+    }
+    if (receivedPOST.type == "usuario"){
+      await wait(1000);
+      var usuario = await queryDatabase('SELECT * FROM Usuaris WHERE id='+receivedPOST.id);
+      result = { status: "OK", result: usuario[0]}
+    }
+    if (receivedPOST.type == "comprobacionModificar"){
+      var array=[];
+      await wait(100);
+      var conteo = await queryDatabase('SELECT COUNT(*) FROM Usuaris WHERE correo="'+receivedPOST.correo+'" AND id!='+receivedPOST.id);
+      if (Object.values(conteo[0])!=0){
+        array.push("errorUsuario");
+      }
+      var regex = /^[a-zA-ZñÑáéíóúÁÉÍÓÚ]+$/;//Se utiliza para comprobar que solo contiene las letras indicadas
+      if(regex.test(receivedPOST.nom)){
+      	regex = /^[ a-zA-ZñÑáéíóúÁÉÍÓÚ]+$/;//Se utiliza para comprobar que solo contiene las letras indicadas y espacio
+        if(regex.test(receivedPOST.cognom)){
+          if(receivedPOST.cognom.trim()==""){
+            array.push("errorNombreApellido"); ;
+          } 
+        }else{
+          array.push("errorNombreApellido"); 
+        }
+      }else{
+        array.push("errorNombreApellido");
+      }
+      regex = /^\w+([.-_+]?\w+)*@\w+([.-]?\w+)*(\.\w{2,10})+$/;//Se utiliza para comprobar que tiene los caracteres caracteristicos del correo (sacado de internet)
+      if (!regex.test(receivedPOST.correo)){
+        array.push("errorCorreo");
+      }
+      regex = /^(\d{9})$/;//Se utiliza para comprobar que contiene exactamente 9 numeros como los telefonos de españa
+      if (!regex.test(receivedPOST.telefon)){
+        array.push("errorTelefono");
+      }
+      if(isNaN(receivedPOST.direccio)){
+        if (receivedPOST.direccio.trim() == ""){
+          array.push("errorDireccio");
+        }
+      }else{
+        if (receivedPOST.direccio.trim() == ""){
+          array.push("errorDireccio");
+        }
+      }
+      regex = /^[ a-zA-ZñÑáéíóúÁÉÍÓÚ]+$/;//Se utiliza para comprobar que solo contiene las letras indicadas y espacio
+      if(regex.test(receivedPOST.ciutat)){
+        if(receivedPOST.ciutat.trim()==""){
+      	  array.push("errorCiutat");
+        }
+      } else{
+        array.push("errorCiutat");
+      }
+      result = {status: "OK", result:array}
+    }
+    if (receivedPOST.type == "modificar"){
+      await wait(100);
+      await queryDatabase("UPDATE Usuaris SET nom='"+receivedPOST.nom+"', cognom='"+receivedPOST.cognom+"', correo='"+receivedPOST.correo+"', telefon='"+receivedPOST.telefon+"', direccio='"+receivedPOST.direccio+"', ciutat='"+receivedPOST.ciutat+"' WHERE id="+receivedPOST.id);
+      result = {status: "OK"}
+    }
+    }
 
   res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(result))
 }
 
+// Run WebSocket server
 const WebSocket = require('ws')
 const wss = new WebSocket.Server({ server: httpServer })
 const socketsClients = new Map()
-console.log(`Example app listening for WebSocket queries on: http://localhost:${port}`)
+console.log(`Listening for WebSocket queries on ${port}`)
 
-
+// What to do when a websocket client connects
 wss.on('connection', (ws) => {
+
   console.log("Client connected")
 
   // Add client to the clients list
@@ -68,6 +200,9 @@ wss.on('connection', (ws) => {
   const color = Math.floor(Math.random() * 360)
   const metadata = { id, color }
   socketsClients.set(ws, metadata)
+
+  // Send clients list to everyone
+  sendClients()
 
   // What to do when a client is disconnected
   ws.on("close", () => {
@@ -83,18 +218,35 @@ wss.on('connection', (ws) => {
     catch (e) { console.log("Could not parse bufferedMessage from WS message") }
 
     if (messageAsObject.type == "bounce") {
-      var rst = { type: "response", text: `Rebotar Websocket: '${messageAsObject.text}'` }
+      var rst = { type: "bounce", message: messageAsObject.message }
       ws.send(JSON.stringify(rst))
     } else if (messageAsObject.type == "broadcast") {
-      var rst = { type: "response", text: `Broadcast Websocket: '${messageAsObject.text}'` }
+      var rst = { type: "broadcast", origin: id, message: messageAsObject.message }
       broadcast(rst)
-    }
+    } else if (messageAsObject.type == "private") {
+      var rst = { type: "private", origin: id, destination: messageAsObject.destination, message: messageAsObject.message }
+      private(rst)
+    } 
   })
 })
 
-// Send a message to all clients
-async function broadcast (obj) {
+// Send clientsIds to everyone
+function sendClients () {
+  var clients = []
+  socketsClients.forEach((value, key) => {
+    clients.push(value.id)
+  })
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      var id = socketsClients.get(client).id
+      var messageAsString = JSON.stringify({ type: "clients", id: id, list: clients })
+      client.send(messageAsString)
+    }
+  })
+}
 
+// Send a message to all websocket clients
+async function broadcast (obj) {
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       var messageAsString = JSON.stringify(obj)
@@ -103,16 +255,27 @@ async function broadcast (obj) {
   })
 }
 
-// Get the list of database tables from mysql
+// Send a private message to a specific client
+async function private (obj) {
+  wss.clients.forEach((client) => {
+    if (socketsClients.get(client).id == obj.destination && client.readyState === WebSocket.OPEN) {
+      var messageAsString = JSON.stringify(obj)
+      client.send(messageAsString)
+      return
+    }
+  })
+}
+
+// Perform a query to the database
 function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "localhost",
-      port: process.env.MYSQLPORT || 3306,
+      host: process.env.MYSQLHOST || "containers-us-west-44.railway.app",
+      port: process.env.MYSQLPORT || 6571,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "",
-      database: process.env.MYSQLDATABASE || "test"
+      password: process.env.MYSQLPASSWORD || "01NPGkyBopSBFu21w6EV",
+      database: process.env.MYSQLDATABASE || "railway"
     });
 
     connection.query(query, (error, results) => { 
