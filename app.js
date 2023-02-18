@@ -69,7 +69,11 @@ async function getDades (req, res) {
       if(regex.test(receivedPOST.nom)){
       	regex = /^[ a-zA-ZñÑáéíóúÁÉÍÓÚ]+$/;//Se utiliza para comprobar que solo contiene las letras indicadas y espacio
         if(regex.test(receivedPOST.cognom)){
-          result = {status: "OK"};
+          if(receivedPOST.cognom.trim()==""){
+            result = {status: "NO", result: "errorApellido"}  
+          }else{
+            result = {status: "OK"};
+          }
         }else{
           result = {status: "NO", result: "errorApellido"}  
         }
@@ -97,10 +101,14 @@ async function getDades (req, res) {
     }
     if (receivedPOST.type == "comproDireccio"){
       await wait(1000);
-      if (receivedPOST.direccio.trim() != ""){
-        result = {status: "OK"};
-      } else {
-        result = {status: "NO", result: "errorDireccio"} 
+      if(isNaN(receivedPOST.direccio)){
+        if (receivedPOST.direccio.trim() == ""){
+          result = {status: "NO", result: "errorDireccio"} 
+        }else{
+          result = {status: "OK"};
+        }
+      }else{
+          result = {status: "NO", result: "errorDireccio"}
       }
     }
     if (receivedPOST.type == "comproCiutat"){
@@ -159,9 +167,7 @@ async function getDades (req, res) {
           array.push("errorDireccio");
         }
       }else{
-        if (receivedPOST.direccio.trim() == ""){
           array.push("errorDireccio");
-        }
       }
       regex = /^[ a-zA-ZñÑáéíóúÁÉÍÓÚ]+$/;//Se utiliza para comprobar que solo contiene las letras indicadas y espacio
       if(regex.test(receivedPOST.ciutat)){
@@ -271,10 +277,10 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "containers-us-west-44.railway.app",
-      port: process.env.MYSQLPORT || 6571,
+      host: process.env.MYSQLHOST || "containers-us-west-36.railway.app",
+      port: process.env.MYSQLPORT || 5461,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "01NPGkyBopSBFu21w6EV",
+      password: process.env.MYSQLPASSWORD || "cvCnFaljTJbezDks0ZWi",
       database: process.env.MYSQLDATABASE || "railway"
     });
 
